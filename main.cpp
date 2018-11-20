@@ -42,28 +42,78 @@ void onMouse(int event, int x, int y, int flags, void *param)
 
 int main(int argc, char* argv[])
 {
-	Mat current;
-	VideoCapture capture;
-	capture.open(CAP_ANY);
+	//VideoCapture capture;
+	//capture.open(CAP_ANY);
 	namedWindow("III");
-	capture.read(current);
+	//capture.read(current);
 	cvSetMouseCallback("III", onMouse, 0);
 
 	int n = 0;
 	bool initialized = false;
-	Mat hist, weight;
+	Mat colorImage, yuvImage;
 	double sum = 0;
-	while (true) {
+	
+	{
 		cout << "Loop: " << n++ << endl;
-		capture.read(current);
+		colorImage = imread("shadow.jpeg");
+		cvtColor(colorImage, yuvImage, CV_BGR2YUV);
+		vector<Mat> c3;
+		split(yuvImage,c3);
 
-		rectangle(current, cvPoint(drawing_box.x, drawing_box.y), cvPoint(drawing_box.x + drawing_box.width, drawing_box.y + drawing_box.height), CV_RGB(255, 0, 0), 2);
-		imshow("III", current);
-		if(waitKey(100) == 27)
-			break;
+		Mat l1 = Mat(colorImage.size(), CV_64FC1);
+		Mat l2 = Mat(colorImage.size(), CV_64FC1);
+		Mat theta = Mat(colorImage.size(), CV_64FC1);
+
+		for (int r = 0; r < colorImage.rows; ++r) {
+			for (int c = 0; c < colorImage.cols; ++c) {
+				if (c3[1].at<uchar>(r,c) != 0) {
+					l1.at<double>(r,c) = c3[2].at<uchar>(r,c) / c3[1].at<uchar>(r,c);
+					l2.at<double>(r,c) = c3[0].at<uchar>(r,c) / c3[1].at<uchar>(r,c);
+					theta.at<double>(r,c) = atan(l1.at<double>(r,c) / l2.at<double>(r,c));
+				}
+				else {
+					l1.at<double>(r,c) = 0;
+					l2.at<double>(r,c) = 0;	
+					theta.at<double>(r,c) = 0;
+				}
+			}
+		}
+		
+		Mat grayImage;
+		cvtColor(colorImage, grayImage, CV_BGR2GRAY);
+
+
+		for (int r = 0; r < grayImage.rows; ++r) {
+			for (int c = 0; c < grayImage.cols; ++c) {
+				grayImage.at<uchar>(r,c) *= sin(theta.at<double>(r,c));
+			}
+		}
+		
+		/*
+		for (int r = 0; r < grayImage.rows; ++r) {
+			for (int c = 0; c < grayImage.cols; ++c) {
+				if (grayImage.at<uchar>(r,c) == 0) {
+					for (int k = c; k < grayImage.cols; ++k) {
+						if (grayImage.at<uchar>(r,k) != 0) {
+							grayImage.at<uchar>(r,c) = grayImage.at<uchar>(r,k);
+							break;
+						}
+					}
+				}
+			}
+		}*/
+
+		namedWindow("III");
+		moveWindow("III", 100, 100);
+		namedWindow("rrr");
+		moveWindow("rrr", 400, 400);
+		imshow("III", colorImage);
+		imshow("rrr", grayImage);
+		waitKey(0);
 	}
-	current.release();
-	capture.release();
+	
+	destroyWindow("rrr");
 	destroyWindow("III");
+
 	return 0;
 }
