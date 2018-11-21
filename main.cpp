@@ -40,77 +40,73 @@ void onMouse(int event, int x, int y, int flags, void *param)
 	return;
 }
 
+Mat getBrightness(Mat temp) {
+	vector<Mat> c3;
+	Mat lum;
+
+    split(temp, c3);
+
+	lum = Mat(temp.size(), CV_32FC1);
+    lum = c3[0] * 0.299 + c3[1] * 0.587 + c3[2] * 0.114;
+	
+	double minV, maxV;
+	minMaxLoc(lum, &minV, &maxV);
+
+	Mat grayImage = Mat(lum.size(), CV_8UC1);
+	grayImage = (lum - minV) / (maxV - minV) * 255;
+	return grayImage;
+}
+
+Mat getIllumination(Mat temp) {
+	vector<Mat> c3;
+	split(temp,c3);
+
+	Mat l1 = Mat(temp.size(), CV_64FC1);
+	Mat l2 = Mat(temp.size(), CV_64FC1);
+	Mat theta = Mat(temp.size(), CV_64FC1);
+
+	for (int r = 0; r < temp.rows; ++r) {
+		for (int c = 0; c < temp.cols; ++c) {
+			if (c3[1].at<uchar>(r,c) != 0) {
+				l1.at<double>(r,c) = c3[2].at<uchar>(r,c) / c3[1].at<uchar>(r,c);
+				l2.at<double>(r,c) = c3[0].at<uchar>(r,c) / c3[1].at<uchar>(r,c);
+				theta.at<double>(r,c) = atan(l1.at<double>(r,c) / l2.at<double>(r,c));
+			}
+			else {
+				l1.at<double>(r,c) = 0;
+				l2.at<double>(r,c) = 0;	
+				theta.at<double>(r,c) = 0;
+			}
+		}
+	}
+		
+	Mat grayImage;
+	cvtColor(temp, grayImage, COLOR_BGR2GRAY);
+	for (int r = 0; r < grayImage.rows; ++r) {
+		for (int c = 0; c < grayImage.cols; ++c) {
+			grayImage.at<uchar>(r,c) *= sin(theta.at<double>(r,c));
+		}
+	}
+
+	return grayImage;
+}
+
 int main(int argc, char* argv[])
 {
-	//VideoCapture capture;
-	//capture.open(CAP_ANY);
 	namedWindow("III");
-	//capture.read(current);
 	cvSetMouseCallback("III", onMouse, 0);
 
-	int n = 0;
-	bool initialized = false;
-	Mat colorImage, yuvImage;
-	double sum = 0;
+	Mat colorImage, grayImage;
 	
-	{
-		cout << "Loop: " << n++ << endl;
-		colorImage = imread("shadow.jpeg");
-		cvtColor(colorImage, yuvImage, CV_BGR2YUV);
-		vector<Mat> c3;
-		split(yuvImage,c3);
+	colorImage = imread("shadow.jpeg");
+	grayImage = getBrightness(colorImage);
 
-		Mat l1 = Mat(colorImage.size(), CV_64FC1);
-		Mat l2 = Mat(colorImage.size(), CV_64FC1);
-		Mat theta = Mat(colorImage.size(), CV_64FC1);
-
-		for (int r = 0; r < colorImage.rows; ++r) {
-			for (int c = 0; c < colorImage.cols; ++c) {
-				if (c3[1].at<uchar>(r,c) != 0) {
-					l1.at<double>(r,c) = c3[2].at<uchar>(r,c) / c3[1].at<uchar>(r,c);
-					l2.at<double>(r,c) = c3[0].at<uchar>(r,c) / c3[1].at<uchar>(r,c);
-					theta.at<double>(r,c) = atan(l1.at<double>(r,c) / l2.at<double>(r,c));
-				}
-				else {
-					l1.at<double>(r,c) = 0;
-					l2.at<double>(r,c) = 0;	
-					theta.at<double>(r,c) = 0;
-				}
-			}
-		}
-		
-		Mat grayImage;
-		cvtColor(colorImage, grayImage, CV_BGR2GRAY);
-
-
-		for (int r = 0; r < grayImage.rows; ++r) {
-			for (int c = 0; c < grayImage.cols; ++c) {
-				grayImage.at<uchar>(r,c) *= sin(theta.at<double>(r,c));
-			}
-		}
-		
-		/*
-		for (int r = 0; r < grayImage.rows; ++r) {
-			for (int c = 0; c < grayImage.cols; ++c) {
-				if (grayImage.at<uchar>(r,c) == 0) {
-					for (int k = c; k < grayImage.cols; ++k) {
-						if (grayImage.at<uchar>(r,k) != 0) {
-							grayImage.at<uchar>(r,c) = grayImage.at<uchar>(r,k);
-							break;
-						}
-					}
-				}
-			}
-		}*/
-
-		namedWindow("III");
-		moveWindow("III", 100, 100);
-		namedWindow("rrr");
-		moveWindow("rrr", 400, 400);
-		imshow("III", colorImage);
-		imshow("rrr", grayImage);
-		waitKey(0);
-	}
+	moveWindow("III", 100, 100);
+	namedWindow("rrr");
+	moveWindow("rrr", 400, 400);
+	imshow("III", colorImage);
+	imshow("rrr", grayImage);
+	waitKey(0);
 	
 	destroyWindow("rrr");
 	destroyWindow("III");
